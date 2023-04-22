@@ -3,6 +3,8 @@
     "eslint.alwaysShowStatus": true,
     "eslint.format.enable": true,
     "eslint.packageManager": "yarn",
+    "git.autofetch": true,
+    "git.fetchOnPull": true,
     "[javascript]": {
       "editor.defaultFormatter": "dbaeumer.vscode-eslint"
     },
