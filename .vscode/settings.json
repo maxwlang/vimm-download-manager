@@ -4,6 +4,9 @@
     "eslint.format.enable": true,
     "eslint.packageManager": "yarn",
     "git.autofetch": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": true
+    },
     "git.fetchOnPull": true,
     "[javascript]": {
       "editor.defaultFormatter": "dbaeumer.vscode-eslint"
