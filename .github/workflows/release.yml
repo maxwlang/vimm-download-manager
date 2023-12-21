@@ -39,9 +39,9 @@ jobs:
               run: yarn test
 
             # Build docker image, push to GitHub Packages
-            - name: Build docker image on release, naming the release after the tag
+            - name: Build and tag docker image
               run: |
-                docker build -t ${{ github.repository }}:${{ github.ref }} .
+                docker build -t ${{ github.repository }}:${{ github.event.release.tag_name }} .
                 docker tag ${{ github.repository }}:${{ github.ref }} ${{ github.repository }}:latest
                 docker tag ${{ github.repository }}:${{ github.ref }} ${{ github.repository }}:${{ github.event.release.tag_name }}
             - name: Push docker image to GitHub Packages
