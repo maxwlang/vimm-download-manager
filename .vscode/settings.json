@@ -1,21 +1,19 @@
 {
-    "editor.formatOnSave": true,
-    "eslint.alwaysShowStatus": true,
-    "eslint.format.enable": true,
-    "eslint.packageManager": "yarn",
-    "git.autofetch": true,
-    "editor.codeActionsOnSave": {
-      "source.fixAll": true
-    },
-    "git.fetchOnPull": true,
-    "[javascript]": {
-      "editor.defaultFormatter": "dbaeumer.vscode-eslint"
-    },
-    "[typescript]": {
-      "editor.defaultFormatter": "dbaeumer.vscode-eslint"
-    },
-    "[json]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode"
-    }
+  "editor.formatOnSave": true,
+  "eslint.alwaysShowStatus": true,
+  "eslint.format.enable": true,
+  "git.autofetch": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "always"
+  },
+  "git.fetchOnPull": true,
+  "[javascript]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   }
-  
+}
