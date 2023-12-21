@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  release: 
+    types: published
+
+jobs:
+    test-build-release:
+        runs-on: ubuntu-latest
+        steps:
+            # Setup
+            - uses: actions/checkout@v2
+              with:
+                fetch-depth: 0
+            - uses: actions/setup-node@v2.1.4
+              with:
+                node-version: 20
+            
+            - name: Get yarn cache directory path
+              id: yarn-cache-dir-path
+              run: echo "::set-output name=dir::$(yarn cache dir)"
+            - name: Setup yarn cache
+              uses: actions/cache@v2
+              id: yarn-cache
+              with:
+                path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+                key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+                restore-keys: |
+                  ${{ runner.os }}-yarn-
+            
+            - name: Add node-gyp
+              run: yarn global add node-gyp
+
+            - name: Install modules
+              run: yarn --prefer-offline --frozen-lockfile
+
+            # Test
+            - name: Run tests
+              run: yarn test
+
+            # Build docker image, push to GitHub Packages
+            - name: Build docker image on release, naming the release after the tag
+              run: |
+                docker build -t ${{ github.repository }}:${{ github.ref }} .
+                docker tag ${{ github.repository }}:${{ github.ref }} ${{ github.repository }}:latest
+                docker tag ${{ github.repository }}:${{ github.ref }} ${{ github.repository }}:${{ github.event.release.tag_name }}
+            - name: Push docker image to GitHub Packages
+              run: |
+                echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+                docker push docker.pkg.github.com/${{ github.repository }}:${{ github.event.release.tag_name }}
+                docker push docker.pkg.github.com/${{ github.repository }}:latest
