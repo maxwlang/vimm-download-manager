@@ -13,6 +13,7 @@
         "mitchdenny.ecdc",
         "ms-kubernetes-tools.vscode-kubernetes-tools",
         "ms-vscode.hexeditor",
-        "redhat.vscode-yaml"
+        "redhat.vscode-yaml",
+        "github.vscode-github-actions"
     ],
 }
