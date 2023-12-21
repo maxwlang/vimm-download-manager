@@ -1,0 +1,18 @@
+{
+    "recommendations": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "mikestead.dotenv",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "ms-python.python",
+        "WallabyJs.quokka-vscode",
+        "eamodio.gitlens",
+        "signageos.signageos-vscode-sops",
+        "ms-azuretools.vscode-docker",
+        "mitchdenny.ecdc",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "ms-vscode.hexeditor",
+        "redhat.vscode-yaml"
+    ],
+}
