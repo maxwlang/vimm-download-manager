@@ -1,4 +1,4 @@
-FROM node:18
+FROM node:20
 WORKDIR /app
 ADD . /app
 RUN chmod +x ./startup.sh
