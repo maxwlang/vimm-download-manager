@@ -23,7 +23,8 @@
         "strict": true,
         "target": "ES2022",
         "types": [
-            "node"
+            "node",
+            "jest"
         ],
         "typeRoots": [
             "node_modules/@types",
@@ -39,6 +40,7 @@
         "src/*.ts",
         "src/**/*.ts",
         "test/*.ts",
-        "test/**/*.ts"
+        "test/**/*.ts",
+        "jest.config.ts"
     ]
 }

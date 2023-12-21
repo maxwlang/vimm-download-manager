@@ -2,7 +2,7 @@ module.exports = {
     parserOptions: {
         ecmaVersion: 2022
     },
-    ignorePatterns: ['dist/**'],
+    ignorePatterns: ['dist/**', 'jest.config.ts'],
     plugins: ['prettier'],
     extends: ['plugin:prettier/recommended'],
     env: {
