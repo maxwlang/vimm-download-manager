@@ -156,9 +156,9 @@ async function getGameData(
 ;(async (): Promise<void> => {
     const uriBase = 'https://gamehacking.org'
     const gameSystem = 'ngc'
-    const downloadFolder = './downloaded'
+    const downloadFolder =
+        process.env['GH_SCRAPER_DOWNLOAD_FOLDER'] ?? './downloaded'
     const gamesStateFile = `${downloadFolder}/games.json`
-    const ignoreStateFile = `${downloadFolder}/.ignorestate`
     const cheatsFolder = `${downloadFolder}/cheats`
     const noSerialFolder = `${downloadFolder}/no-serial`
 
@@ -173,9 +173,9 @@ async function getGameData(
 
     let gameEntries: GameEntry[] = []
     const hasGamesStateFile = await fs.exists(gamesStateFile)
-    const hasIgnoreStateFile = await fs.exists(ignoreStateFile)
+    const ignoreStateFile = process.env['GH_SCRAPER_IGNORE_STATE_FILE'] ?? false
 
-    if (hasGamesStateFile && !hasIgnoreStateFile) {
+    if (hasGamesStateFile && !ignoreStateFile) {
         console.log('Using cached games')
         gameEntries = fs.readJsonSync(gamesStateFile)
         console.log(`Loaded ${gameEntries.length} games`)
