@@ -12,7 +12,7 @@ else
     echo "Initializing.."
     yarn
     touch $FILE
-    echo "Done. Startning up.."
+    echo "Done. Starting up.."
     until yarn start; do
         echo "Server crashed with exit code $?.  Respawning.." >&2
         sleep 1

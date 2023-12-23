@@ -1,7 +1,11 @@
-FROM node:20
+FROM ghcr.io/puppeteer/puppeteer:21.6.1
+USER 0
 WORKDIR /app
-ADD . /app
-RUN chmod +x ./startup.sh
+COPY . /app
+RUN chown -R pptruser:pptruser /app
+RUN chmod -R 755 /app
+USER pptruser
+RUN chmod +x /app/startup.sh
 RUN yarn --frozen-lockfile
 RUN yarn build
-CMD ./startup.sh
+CMD /app/startup.sh
