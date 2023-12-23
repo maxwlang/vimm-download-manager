@@ -18,7 +18,7 @@ No bulk export option make angry
 -- OR --
 
 1. Have docker
-2. Run `docker run -it --rm -v $(pwd)/downloaded:/app/downloaded ghcr.io/maxwlang/gamehacking-scraper:v1.0.0`
+2. Run `docker run -it --rm --cap-add=SYS_ADMIN -v $(pwd)/downloaded:/app/downloaded ghcr.io/maxwlang/gamehacking-scraper:v1.1.0`
 
 ## Environment Variables
 
