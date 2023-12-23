@@ -1,4 +1,4 @@
-FROM node:20
+FROM ghcr.io/puppeteer/puppeteer:21.6.1
 WORKDIR /app
 ADD . /app
 RUN chmod +x ./startup.sh
