@@ -4,13 +4,18 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "ramda": "^0.29.0"
+    "fs-extra": "^11.2.0",
+    "puppeteer": "^21.6.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "ramda": "^0.29.1",
+    "uuid": "^9.0.1"
   },
   "scripts": {
     "start": "node dist/index.js",
     "dev": "yarn clean && yarn lint && yarn build && node dist/index.js",
     "clean": "rimraf dist/",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "lint": "eslint . --ext .ts",
     "pretest": "yarn lint",
     "test": "jest"
@@ -19,8 +24,11 @@
     "node": ">=20.10.0"
   },
   "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
     "@types/jest": "^29.5.11",
     "@types/node": "^20.10.5",
+    "@types/ramda": "^0.29.9",
+    "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
     "eslint": "^8.56.0",

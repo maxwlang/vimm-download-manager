@@ -9,7 +9,7 @@
         "isolatedModules": false,
         "lib": [
             "ES2022",
-            "DOM"
+            "Dom"
         ],
         "module": "CommonJS",
         "moduleResolution": "node",
@@ -24,8 +24,7 @@
         "strict": true,
         "target": "ES2022",
         "types": [
-            "node",
-            "jest"
+            "node"
         ],
         "typeRoots": [
             "node_modules/@types",
@@ -35,13 +34,11 @@
     },
     "exclude": [
         "node_modules",
-        "dist"
+        "dist",
+        "test"
     ],
     "include": [
         "src/*.ts",
         "src/**/*.ts",
-        "test/*.ts",
-        "test/**/*.ts",
-        "jest.config.ts"
     ]
 }
