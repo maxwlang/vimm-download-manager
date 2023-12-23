@@ -164,7 +164,7 @@ async function getGameData(
 
     const browser = await puppeteer
         .use(StealthPlugin())
-        .launch({ headless: true })
+        .launch({ headless: 'new' })
 
     const page = await browser.newPage()
     // await page.setViewport({ width: 1080, height: 1024 })
@@ -220,14 +220,18 @@ async function getGameData(
     }
 
     await fs.mkdir(downloadFolder).catch(e => e)
-    await fs.rmdir(cheatsFolder, { recursive: true }).catch(e => e)
+    await fs.rm(cheatsFolder, { recursive: true }).catch(e => e)
     await fs.mkdir(cheatsFolder)
     if (!hasGamesStateFile) {
         await fs.writeFile(gamesStateFile, JSON.stringify(gameEntries, null, 2))
     }
 
-    for (const gameEntry of gameEntries) {
-        console.log(`Getting game data for: ${gameEntry.title}`)
+    for (const [index, gameEntry] of gameEntries.entries()) {
+        console.log(
+            `Getting game data for: ${gameEntry.title} (${index + 1} / ${
+                gameEntries.length - 1
+            })`
+        )
         for (const cheatEntry of gameEntry.cheatEntries) {
             console.log(`Getting cheat data for: ${cheatEntry.title}`)
             const gameData = await getGameData(page, uriBase, cheatEntry)
