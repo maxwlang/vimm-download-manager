@@ -39,6 +39,7 @@ jobs:
     needs: test
     permissions:
       contents: read
+      packages: write
     steps:
       # Setup
       - uses: actions/checkout@v2
@@ -66,27 +67,8 @@ jobs:
       - name: Install modules
         run: yarn --prefer-offline --frozen-lockfile
 
-      # Build docker image, push to GitHub Packages
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3.0.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5.4.0
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=tag
-            type=sha
-
-      - name: Build and push Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v5.1.0
         with:
           context: .
           push: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
