@@ -229,7 +229,7 @@ async function getGameData(
     for (const [index, gameEntry] of gameEntries.entries()) {
         console.log(
             `Getting game data for: ${gameEntry.title} (${index + 1} / ${
-                gameEntries.length - 1
+                gameEntries.length
             })`
         )
         for (const cheatEntry of gameEntry.cheatEntries) {
