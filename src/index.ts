@@ -6,6 +6,10 @@ import * as R from 'ramda'
 import { v4 as uuidv4 } from 'uuid'
 import { CheatEntry, GameData, GameEntry } from './types'
 
+function isHTMLContent(content: string): boolean {
+    return content.startsWith('<!DOCTYPE html>') // Simple check
+}
+
 async function getPagination(
     page: Page,
     uriBase: string,
@@ -86,52 +90,85 @@ async function getCheatBuffer(
     return new Promise(async res => {
         const filename = encodeURIComponent(cheatEntry.title)
 
-        const cheatData = await page.evaluate(
-            async (
-                uriBase: string,
-                filename: string,
-                cheatEntry: CheatEntry
-            ): Promise<string | undefined> => {
-                const sysId = document
-                    .querySelector('input[name="sysID"]')
-                    ?.getAttribute('value')
+        const getCheatData = async (): Promise<string | undefined> =>
+            await page.evaluate(
+                async (
+                    uriBase: string,
+                    filename: string,
+                    cheatEntry: CheatEntry
+                ): Promise<string | undefined> => {
+                    const sysId = document
+                        .querySelector('input[name="sysID"]')
+                        ?.getAttribute('value')
 
-                const gameCode = document
-                    .querySelector('input[name="gamID"]')
-                    ?.getAttribute('value')
+                    const gameCode = document
+                        .querySelector('input[name="gamID"]')
+                        ?.getAttribute('value')
 
-                if (!sysId) {
-                    console.log(`Missing sysId for ${cheatEntry.url}`)
-                    return undefined
-                }
-
-                if (!gameCode) {
-                    console.log(`Missing gameCodeInput for ${cheatEntry.url}`)
-                    return undefined
-                }
-
-                const download = await fetch(
-                    `${uriBase}/inc/sub.exportCodes.php`,
-                    {
-                        credentials: 'include',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded'
-                        },
-                        referrer: cheatEntry.url,
-                        body: `format=Text&codID=&filename=${filename}&sysID=${sysId}&gamID=${gameCode}&download=true`,
-                        method: 'POST',
-                        mode: 'cors'
+                    if (!sysId) {
+                        console.log(`Missing sysId for ${cheatEntry.url}`)
+                        return undefined
                     }
+
+                    if (!gameCode) {
+                        console.log(
+                            `Missing gameCodeInput for ${cheatEntry.url}`
+                        )
+                        return undefined
+                    }
+
+                    const download = await fetch(
+                        `${uriBase}/inc/sub.exportCodes.php`,
+                        {
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type':
+                                    'application/x-www-form-urlencoded'
+                            },
+                            referrer: cheatEntry.url,
+                            body: `format=Text&codID=&filename=${filename}&sysID=${sysId}&gamID=${gameCode}&download=true`,
+                            method: 'POST',
+                            mode: 'cors'
+                        }
+                    )
+
+                    return download?.text()
+                },
+                uriBase,
+                filename,
+                cheatEntry
+            )
+
+        let cheatData = await getCheatData()
+
+        if (!cheatData || isHTMLContent(cheatData)) {
+            let retries = 0
+            while (!cheatData || isHTMLContent(cheatData)) {
+                retries++
+                const timeout = 2000 * retries
+                console.log(
+                    `Retrying: ${cheatEntry.title}; Timeout: ${timeout}`
                 )
+                cheatData = await getCheatData()
 
-                return download?.text()
-            },
-            uriBase,
-            filename,
-            cheatEntry
-        )
+                if (cheatData && !isHTMLContent(cheatData)) {
+                    console.log(`Success: ${cheatEntry.title}`)
+                    break
+                }
 
-        if (!cheatData) return res(undefined)
+                if (retries > 3) {
+                    console.log(`Too many retries: ${cheatEntry.title}`)
+                    break
+                }
+
+                await new Promise(r => setTimeout(r, timeout))
+            }
+
+            if (!cheatData || isHTMLContent(cheatData)) {
+                console.log(`Failed: ${cheatEntry.title}`)
+                return res(undefined)
+            }
+        }
 
         const cheatBuffer = Buffer.from(cheatData, 'utf8')
         res(cheatBuffer)
