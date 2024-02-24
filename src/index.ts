@@ -128,6 +128,7 @@ async function downloadGame(
     browser: Browser,
     page: Page,
     log: Logger,
+    downloadFolder: string,
     fileNameOverride?: string,
     isRetry?: boolean
 ): Promise<boolean> {
@@ -149,11 +150,18 @@ async function downloadGame(
             log.info('Retrying download in 2 seconds..')
             await new Promise(resolve => setTimeout(resolve, 2000))
 
-            return downloadGame(browser, page, log, fileNameOverride, true)
+            return downloadGame(
+                browser,
+                page,
+                log,
+                downloadFolder,
+                fileNameOverride,
+                true
+            )
         }
 
         const tmpSuffix = `.tmp-${uuidv4()}`
-        const tmpFilePath = `./downloads/${
+        const tmpFilePath = `${downloadFolder}${
             fileNameOverride
                 ? fileNameOverride
                 : `${gameBuffer.fileName}${tmpSuffix}`
@@ -259,6 +267,7 @@ async function getDownloads(log: Logger): Promise<Downloads> {
                 browser,
                 page,
                 log,
+                downloadFolder,
                 download.fileName !== null ? download.fileName : undefined
             ).catch(e => log.error(e))
 
