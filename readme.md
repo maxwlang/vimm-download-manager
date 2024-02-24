@@ -19,9 +19,9 @@ This was done because Vimm's Lair does not have a bulk download option, offer to
 
 ## Environment Variables
 
-| Variable                       | Description                                                               | Default       |
-| ------------------------------ | ------------------------------------------------------------------------- | ------------- |
-| `NODE_ENV`                     | The environment of the script, if production console output will be json. | N/A           |
-| `VIMM_SCRAPER_LOG_LEVEL`       | Pino log level                                                            | `info`        |
-| `VIMM_SCRAPER_DOWNLOAD_FOLDER` | The folder to download files to. Default is relative to app dir.          | `./downloads` |
-| `VIMM_SCRAPER_LOGS_FOLDER`     | The folder to save logs to. Default is relative to app dir.               | `./logs`      |
+| Variable                       | Description                                                               | Default       | Example                    |
+| ------------------------------ | ------------------------------------------------------------------------- | ------------- | -------------------------- |
+| `NODE_ENV`                     | The environment of the script, if production console output will be json. | N/A           | `production`               |
+| `VIMM_SCRAPER_LOG_LEVEL`       | Pino log level                                                            | `info`        | `debug`                    |
+| `VIMM_SCRAPER_DOWNLOAD_FOLDER` | The folder to download files to. Default is relative to app dir.          | `./downloads` | `/opt/tank/vimm/downloads` |
+| `VIMM_SCRAPER_LOGS_FOLDER`     | The folder to save logs to. Default is relative to app dir.               | `./logs`      | `/opt/tank/vimm/logs`      |
