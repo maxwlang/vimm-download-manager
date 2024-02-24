@@ -5,6 +5,7 @@ import fs from 'fs-extra'
 import { Downloads, FormData, FormInputs } from './types'
 import pino, { Logger } from 'pino'
 import axios from 'axios'
+import { v4 as uuidv4 } from 'uuid'
 import { basename } from 'path'
 
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker' // Ads are slow
@@ -12,52 +13,45 @@ import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker' // Ads are slow
 async function downloadGameBuffer(
     page: Page,
     log: Logger
-): Promise<{ fileName: string; buffer: Buffer } | undefined> {
+): Promise<{ fileName: string; stream: NodeJS.ReadableStream } | undefined> {
     return new Promise(async res => {
         const formData = await page.evaluate(async (): Promise<FormData> => {
             const formInputFields = document.querySelectorAll<HTMLInputElement>(
                 'form#download_form input'
             )
-
             const formAction =
                 document.querySelector<HTMLFormElement>('form#download_form')
                     ?.action
 
-            if (formAction === undefined) {
+            if (!formAction) {
                 throw new Error('form action not found')
             }
 
-            const formData: FormData = {
-                formAction,
-                formInputs: []
-            }
-
             const formInputs: FormInputs = []
-            if (formInputFields !== null) {
-                formInputFields.forEach(input => {
-                    formInputs.push({
-                        name: input.name,
-                        value: input.value
-                    })
+            formInputFields.forEach(input => {
+                formInputs.push({
+                    name: input.name,
+                    value: input.value
                 })
+            })
+
+            return {
+                formAction,
+                formInputs
             }
-
-            formData.formInputs = formInputs
-
-            return formData
         })
 
         const mediaId = formData.formInputs.find(
             input => input.name === 'mediaId'
         )?.value
 
-        if (mediaId === undefined) {
+        if (!mediaId) {
             const error = new Error('mediaId not found')
             log.error(error)
             throw error
         }
 
-        const downloadURIBase = formData.formAction //.split('//').reverse()[0]
+        const downloadURIBase = formData.formAction
         log.debug({ downloadURIBase })
 
         axios
@@ -110,16 +104,15 @@ async function downloadGameBuffer(
                         eta
                     })
                 },
-                responseType: 'arraybuffer'
+                responseType: 'stream'
             })
             .then(response => {
-                log.info('Download complete')
                 const fileName = response.headers['content-disposition']
                     .split('filename="')[1]
                     .split('"')[0]
                 log.debug({ fileName })
 
-                res({ fileName, buffer: Buffer.from(response.data, 'hex') })
+                res({ fileName, stream: response.data })
             })
             .catch(error => {
                 log.error({
@@ -137,56 +130,66 @@ async function downloadGame(
     log: Logger,
     fileNameOverride?: string,
     isRetry?: boolean
-): Promise<void> {
-    const gameBuffer = await downloadGameBuffer(page, log)
+): Promise<boolean> {
+    return new Promise(async res => {
+        const gameBuffer = await downloadGameBuffer(page, log)
 
-    if (isRetry && !gameBuffer) {
-        log.error('Download failed, no buffer again, bad game..')
-        return
-    } else if (!gameBuffer) {
-        log.error(
-            'Download failed, no buffer, canceling any downloads and retrying..'
-        )
+        if (isRetry && !gameBuffer) {
+            log.error('Download failed, no buffer again, bad game..')
+            return res(false)
+        } else if (!gameBuffer) {
+            log.error(
+                'Download failed, no buffer, canceling any downloads and retrying..'
+            )
 
-        const page2 = await browser.newPage()
-        await page2.goto('https://download2.vimm.net/download/cancel.php')
-        await page2.close()
+            const page2 = await browser.newPage()
+            await page2.goto('https://download2.vimm.net/download/cancel.php')
+            await page2.close()
 
-        log.info('Retrying download in 2 seconds..')
-        await new Promise(resolve => setTimeout(resolve, 2000))
+            log.info('Retrying download in 2 seconds..')
+            await new Promise(resolve => setTimeout(resolve, 2000))
 
-        return downloadGame(browser, page, log, fileNameOverride, true)
-    }
+            return downloadGame(browser, page, log, fileNameOverride, true)
+        }
 
-    log.info('Saving file..')
+        const tmpSuffix = `.tmp-${uuidv4()}`
+        const tmpFilePath = `./downloads/${
+            fileNameOverride
+                ? fileNameOverride
+                : `${gameBuffer.fileName}${tmpSuffix}`
+        }`
 
-    const filePath = `./downloads/${
-        fileNameOverride ? fileNameOverride : gameBuffer.fileName
-    }`
+        const writer = fs.createWriteStream(tmpFilePath)
+        gameBuffer.stream.pipe(writer)
 
-    await fs.writeFile(filePath, gameBuffer.buffer).catch(e => {
-        log.error(e)
-        return
+        writer.on('finish', async () => {
+            const realPath = tmpFilePath.replace(tmpSuffix, '')
+            await fs.rename(tmpFilePath, realPath)
+            log.info('File saved: %s', realPath)
+            const downloadsJson = await getDownloads(log)
+            await fs
+                .writeJson(
+                    './downloads.json',
+                    downloadsJson.map(download => {
+                        if (download.uri === page.url()) {
+                            return (download = {
+                                ...download,
+                                filePath: realPath
+                            })
+                        }
+                        return download
+                    }),
+                    { spaces: 2 }
+                )
+                .then(() => log.info('downloads.json updated'))
+                .then(() => res(true))
+        })
+
+        writer.on('error', error => {
+            log.error(error)
+            res(false)
+        })
     })
-
-    log.info('File saved: %s', filePath)
-
-    const downloadsJson = await getDownloads(log)
-    await fs
-        .writeJson(
-            './downloads.json',
-            downloadsJson.map(download => {
-                if (download.uri === page.url()) {
-                    return (download = {
-                        ...download,
-                        filePath
-                    })
-                }
-                return download
-            }),
-            { spaces: 2 }
-        )
-        .then(() => log.info('downloads.json updated'))
 }
 
 async function getDownloads(log: Logger): Promise<Downloads> {
@@ -252,12 +255,16 @@ async function getDownloads(log: Logger): Promise<Downloads> {
         } else {
             log.info('Access page: %s', download.uri)
             await page.goto(download.uri)
-            await downloadGame(
+            const success = await downloadGame(
                 browser,
                 page,
                 log,
                 download.fileName !== null ? download.fileName : undefined
             ).catch(e => log.error(e))
+
+            if (!success) {
+                log.error('Download failed')
+            }
 
             log.info('Waiting 3 seconds..')
             await new Promise(resolve => setTimeout(resolve, 3000))
