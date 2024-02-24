@@ -1,2 +1,7 @@
 dist/**
 node_modules/**
+logs/**
+downloads/**
+downloads.json
+.envrc
+.DS_Store
