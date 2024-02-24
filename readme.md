@@ -1,12 +1,9 @@
-# GameHacking.org Cheat Scraper
+# Vimm Download Manager
 
-This Typescript project scrapes the GameHacking.org website for cheats and exports them to swiss-ready text based cheat files.
+This Typescript project downloads specified files from Vimm's Lair one after the other. It uses Puppeteer to scrape the site for links, then downloads files with axios.
+This was done because Vimm's Lair does not have a bulk download option, offer torrents, and during sane hours (read: not 4 AM central time) has download speeds of around 500Kb/s.
 
 ![image](./running.png)
-
-## Why?
-
-No bulk export option make angry
 
 ## How to use
 
@@ -18,11 +15,13 @@ No bulk export option make angry
 -- OR --
 
 1. Have docker
-2. Run `docker run -it --rm --cap-add=SYS_ADMIN -v $(pwd)/downloaded:/app/downloaded ghcr.io/maxwlang/gamehacking-scraper:<release tag>`
+2. Run `docker run -it --rm --cap-add=SYS_ADMIN -v $(pwd)/downloaded:/app/downloads ghcr.io/maxwlang/vimm-download-manager:<release tag>`
 
 ## Environment Variables
 
-| Variable                       | Description                                                        | Default                                     |
-| ------------------------------ | ------------------------------------------------------------------ | ------------------------------------------- |
-| `GH_SCRAPER_DOWNLOAD_FOLDER`   | The location to place all content created by the script            | `"./downloaded"` (relative, in project dir) |
-| `GH_SCRAPER_IGNORE_STATE_FILE` | Whether or not to ignore the state file and re-download everything | `false`                                     |
+| Variable                       | Description                                                               | Default       |
+| ------------------------------ | ------------------------------------------------------------------------- | ------------- |
+| `NODE_ENV`                     | The environment of the script, if production console output will be json. | N/A           |
+| `VIMM_SCRAPER_LOG_LEVEL`       | Pino log level                                                            | `info`        |
+| `VIMM_SCRAPER_DOWNLOAD_FOLDER` | The folder to download files to. Default is relative to app dir.          | `./downloads` |
+| `VIMM_SCRAPER_LOGS_FOLDER`     | The folder to save logs to. Default is relative to app dir.               | `./logs`      |

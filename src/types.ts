@@ -1,15 +1,15 @@
-export interface CheatEntry {
-    title: string
-    url: string
-    serial: string
-    cheats?: Buffer
+export type Downloads = {
+    uri: string
+    filePath: string | null
+    fileName: string | null
+}[]
+
+export type FormData = {
+    formAction: string
+    formInputs: FormInputs
 }
 
-export interface GameEntry {
-    title: string
-    cheatEntries: CheatEntry[]
-}
-
-export interface GameData extends CheatEntry {
-    cheats?: Buffer
-}
+export type FormInputs = {
+    name: string
+    value: string
+}[]

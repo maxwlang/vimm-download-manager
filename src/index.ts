@@ -1,301 +1,267 @@
 import puppeteer from 'puppeteer-extra'
-import { Page } from 'puppeteer'
+import { Browser, DEFAULT_INTERCEPT_RESOLUTION_PRIORITY, Page } from 'puppeteer'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import fs from 'fs-extra'
-import * as R from 'ramda'
-import { v4 as uuidv4 } from 'uuid'
-import { CheatEntry, GameData, GameEntry } from './types'
+import { Downloads, FormData, FormInputs } from './types'
+import pino, { Logger } from 'pino'
+import axios from 'axios'
+import { basename } from 'path'
 
-function isHTMLContent(content: string): boolean {
-    return content.startsWith('<!DOCTYPE html>') // Simple check
-}
+import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker' // Ads are slow
 
-async function getPagination(
+async function downloadGameBuffer(
     page: Page,
-    uriBase: string,
-    gameSystem: string
-): Promise<string[]> {
-    const allList = `${uriBase}/system/${gameSystem}/all`
-    await page.goto(`${allList}`)
-
-    const filteredLinks = await page.evaluate(
-        (gameSystem: string): string[] => {
-            const links = document.querySelectorAll(
-                `a[href*="/system/${gameSystem}/all"]`
-            )
-
-            return Array.from(links)
-                .map(link => link.getAttribute('href'))
-                .filter(link => link !== null) as string[]
-        },
-        gameSystem
-    )
-
-    return R.uniq(filteredLinks)
-}
-
-async function getGameEntries(
-    page: Page,
-    uriBase: string,
-    paginationLink: string
-): Promise<GameEntry[]> {
-    await page.goto(`${uriBase}${paginationLink}`)
-    const gameEntries = await page.evaluate((uriBase: string): GameEntry[] => {
-        const tableRows = document.querySelectorAll('tbody tr')
-
-        const gameEntries: GameEntry[] = []
-        let gameEntry: GameEntry | undefined
-
-        // @ts-expect-error whatever
-        for (const tableRow of tableRows) {
-            if (tableRow.querySelector('th')) {
-                if (gameEntry && Object.keys(gameEntry).length > 0) {
-                    gameEntries.push(gameEntry)
-                }
-
-                gameEntry = {
-                    title: tableRow.querySelector('th')?.textContent?.trim(),
-                    cheatEntries: []
-                }
-            } else if (tableRow.querySelector('td a[href*="/game/"]')) {
-                const gameLink = tableRow.querySelector('td a[href*="/game/"]')
-                const gameSerial = tableRow
-                    .querySelector('td:nth-child(2)')
-                    .textContent.trim()
-                const gameLinkHref = gameLink.getAttribute('href')
-                const gameLinkText = gameLink.textContent.trim()
-
-                const cheatEntry = {
-                    title: gameLinkText,
-                    url: `${uriBase}${gameLinkHref}`,
-                    serial: gameSerial
-                }
-
-                // @ts-expect-error whatever
-                gameEntry['cheatEntries'].push(cheatEntry)
-            }
-        }
-
-        return gameEntries
-    }, uriBase)
-
-    return gameEntries
-}
-
-async function getCheatBuffer(
-    page: Page,
-    uriBase: string,
-    cheatEntry: CheatEntry
-): Promise<undefined | Buffer> {
+    log: Logger
+): Promise<{ fileName: string; buffer: Buffer } | undefined> {
     return new Promise(async res => {
-        const filename = encodeURIComponent(cheatEntry.title)
-
-        const getCheatData = async (): Promise<string | undefined> =>
-            await page.evaluate(
-                async (
-                    uriBase: string,
-                    filename: string,
-                    cheatEntry: CheatEntry
-                ): Promise<string | undefined> => {
-                    const sysId = document
-                        .querySelector('input[name="sysID"]')
-                        ?.getAttribute('value')
-
-                    const gameCode = document
-                        .querySelector('input[name="gamID"]')
-                        ?.getAttribute('value')
-
-                    if (!sysId) {
-                        console.log(`Missing sysId for ${cheatEntry.url}`)
-                        return undefined
-                    }
-
-                    if (!gameCode) {
-                        console.log(
-                            `Missing gameCodeInput for ${cheatEntry.url}`
-                        )
-                        return undefined
-                    }
-
-                    const download = await fetch(
-                        `${uriBase}/inc/sub.exportCodes.php`,
-                        {
-                            credentials: 'include',
-                            headers: {
-                                'Content-Type':
-                                    'application/x-www-form-urlencoded'
-                            },
-                            referrer: cheatEntry.url,
-                            body: `format=Text&codID=&filename=${filename}&sysID=${sysId}&gamID=${gameCode}&download=true`,
-                            method: 'POST',
-                            mode: 'cors'
-                        }
-                    )
-
-                    return download?.text()
-                },
-                uriBase,
-                filename,
-                cheatEntry
+        const formData = await page.evaluate(async (): Promise<FormData> => {
+            const formInputFields = document.querySelectorAll<HTMLInputElement>(
+                'form#download_form input'
             )
 
-        let cheatData = await getCheatData()
+            const formAction =
+                document.querySelector<HTMLFormElement>('form#download_form')
+                    ?.action
 
-        if (!cheatData || isHTMLContent(cheatData)) {
-            let retries = 0
-            while (!cheatData || isHTMLContent(cheatData)) {
-                retries++
-                const timeout = 2000 * retries
-                console.log(
-                    `Retrying: ${cheatEntry.title}; Timeout: ${timeout}`
-                )
-                cheatData = await getCheatData()
-
-                if (cheatData && !isHTMLContent(cheatData)) {
-                    console.log(`Success: ${cheatEntry.title}`)
-                    break
-                }
-
-                if (retries > 3) {
-                    console.log(`Too many retries: ${cheatEntry.title}`)
-                    break
-                }
-
-                await new Promise(r => setTimeout(r, timeout))
+            if (formAction === undefined) {
+                throw new Error('form action not found')
             }
 
-            if (!cheatData || isHTMLContent(cheatData)) {
-                console.log(`Failed: ${cheatEntry.title}`)
-                return res(undefined)
+            const formData: FormData = {
+                formAction,
+                formInputs: []
             }
+
+            const formInputs: FormInputs = []
+            if (formInputFields !== null) {
+                formInputFields.forEach(input => {
+                    formInputs.push({
+                        name: input.name,
+                        value: input.value
+                    })
+                })
+            }
+
+            formData.formInputs = formInputs
+
+            return formData
+        })
+
+        const mediaId = formData.formInputs.find(
+            input => input.name === 'mediaId'
+        )?.value
+
+        if (mediaId === undefined) {
+            const error = new Error('mediaId not found')
+            log.error(error)
+            throw error
         }
 
-        const cheatBuffer = Buffer.from(cheatData, 'utf8')
-        res(cheatBuffer)
+        const downloadURIBase = formData.formAction //.split('//').reverse()[0]
+        log.debug({ downloadURIBase })
+
+        axios
+            .get(`${downloadURIBase}?mediaId=${mediaId}`, {
+                headers: {
+                    'User-Agent':
+                        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0',
+                    'Accept':
+                        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Referer': page.url(),
+                    'Connection': 'keep-alive',
+                    'Cookie': 'counted=1',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'same-site',
+                    'Sec-Fetch-User': '?1',
+                    'Pragma': 'no-cache',
+                    'Cache-Control': 'no-cache'
+                },
+                onDownloadProgress: progressEvent => {
+                    let progress
+                    if (progressEvent.total) {
+                        progress = `${(
+                            (progressEvent.loaded * 100) /
+                            progressEvent.total
+                        ).toFixed(2)}%`
+                    } else {
+                        progress = `Unknown`
+                    }
+
+                    let eta
+                    if (progressEvent.estimated) {
+                        const time =
+                            progressEvent.estimated > 60 ? 'min(s)' : 'sec(s)'
+                        const amount =
+                            progressEvent.estimated > 60
+                                ? progressEvent.estimated / 60
+                                : progressEvent.estimated
+                        eta = `${amount.toFixed(0)} ${time} left`
+                    } else {
+                        eta = 'Unknown'
+                    }
+
+                    log.info({
+                        progress,
+                        bytes: `${progressEvent.loaded}/${progressEvent.total}`,
+                        eta
+                    })
+                },
+                responseType: 'arraybuffer'
+            })
+            .then(response => {
+                log.info('Download complete')
+                const fileName = response.headers['content-disposition']
+                    .split('filename="')[1]
+                    .split('"')[0]
+                log.debug({ fileName })
+
+                res({ fileName, buffer: Buffer.from(response.data, 'hex') })
+            })
+            .catch(error => {
+                log.error({
+                    msg: 'Download failed',
+                    error
+                })
+                res(undefined)
+            })
     })
 }
 
-async function getGameData(
+async function downloadGame(
+    browser: Browser,
     page: Page,
-    uriBase: string,
-    cheatEntry: CheatEntry
-): Promise<GameData> {
-    await page.goto(`${cheatEntry.url}`)
+    log: Logger,
+    fileNameOverride?: string,
+    isRetry?: boolean
+): Promise<void> {
+    const gameBuffer = await downloadGameBuffer(page, log)
 
-    const fileBuffer = await getCheatBuffer(page, uriBase, cheatEntry)
+    if (isRetry && !gameBuffer) {
+        log.error('Download failed, no buffer again, bad game..')
+        return
+    } else if (!gameBuffer) {
+        log.error(
+            'Download failed, no buffer, canceling any downloads and retrying..'
+        )
 
-    return {
-        ...cheatEntry,
-        cheats: fileBuffer
+        const page2 = await browser.newPage()
+        await page2.goto('https://download2.vimm.net/download/cancel.php')
+        await page2.close()
+
+        log.info('Retrying download in 2 seconds..')
+        await new Promise(resolve => setTimeout(resolve, 2000))
+
+        return downloadGame(browser, page, log, fileNameOverride, true)
     }
+
+    const filePath = `./downloads/${
+        fileNameOverride ? fileNameOverride : gameBuffer.fileName
+    }`
+
+    await fs.writeFile(filePath, gameBuffer.buffer, 'binary').catch(e => {
+        log.error(e)
+        return
+    })
+
+    const downloadsJson = await getDownloads(log)
+    await fs
+        .writeJson(
+            './downloads.json',
+            downloadsJson.map(download => {
+                if (download.uri === page.url()) {
+                    return (download = {
+                        ...download,
+                        filePath
+                    })
+                }
+                return download
+            }),
+            { spaces: 2 }
+        )
+        .then(() => log.info('downloads.json updated'))
+
+    log.info('File saved: %s', filePath)
+}
+
+async function getDownloads(log: Logger): Promise<Downloads> {
+    log.info('Parse downloads.json')
+    return await fs.readJson('./downloads.json').catch(err => {
+        log.error(err)
+        throw err
+    })
 }
 
 ;(async (): Promise<void> => {
-    const uriBase = 'https://gamehacking.org'
-    const gameSystem = 'ngc'
+    const logsFolder = process.env['VIMM_SCRAPER_LOGS_FOLDER'] ?? './logs'
     const downloadFolder =
-        process.env['GH_SCRAPER_DOWNLOAD_FOLDER'] ?? './downloaded'
-    const gamesStateFile = `${downloadFolder}/games.json`
-    const cheatsFolder = `${downloadFolder}/cheats`
-    const noSerialFolder = `${downloadFolder}/no-serial`
+        process.env['VIMM_SCRAPER_DOWNLOAD_FOLDER'] ?? './downloads'
+
+    await fs.ensureDir(logsFolder)
+    await fs.ensureDir(downloadFolder)
+
+    const transport = pino.transport({
+        targets: [
+            {
+                level: 'trace',
+                target: 'pino/file',
+                options: {
+                    destination: `${logsFolder}/${new Date().toISOString()}.log`
+                }
+            },
+            {
+                level: 'trace',
+                target: 'pino-pretty',
+                options: {}
+            }
+        ]
+    })
+
+    const log = pino(
+        {
+            level: process.env['VIMM_SCRAPER_LOG_LEVEL'] ?? 'info'
+        },
+        process.env['NODE_ENV'] !== 'production' ? transport : undefined
+    )
+
+    log.info('Download folder: %s', downloadFolder)
+    log.info('Logs folder: %s', logsFolder)
 
     const browser = await puppeteer
         .use(StealthPlugin())
+        .use(
+            AdblockerPlugin({
+                interceptResolutionPriority:
+                    DEFAULT_INTERCEPT_RESOLUTION_PRIORITY
+            })
+        )
+        // .launch({ headless: false })
         .launch({ headless: 'new' })
 
     const page = await browser.newPage()
-    // await page.setViewport({ width: 1080, height: 1024 })
 
-    const pagination = await getPagination(page, uriBase, gameSystem)
-
-    let gameEntries: GameEntry[] = []
-    const hasGamesStateFile = await fs.exists(gamesStateFile)
-    const ignoreStateFile = process.env['GH_SCRAPER_IGNORE_STATE_FILE'] ?? false
-
-    if (hasGamesStateFile && !ignoreStateFile) {
-        console.log('Using cached games')
-        gameEntries = fs.readJsonSync(gamesStateFile)
-        console.log(`Loaded ${gameEntries.length} games`)
-    } else {
-        console.log('Fetching games')
-        for (const paginationLink of pagination) {
-            let fetchedGameEntries = await getGameEntries(
+    const downloads = await getDownloads(log)
+    for (const download of downloads) {
+        if (download.filePath !== null && fs.existsSync(download.filePath)) {
+            log.info(`File already downloaded: ${basename(download.filePath)}`)
+        } else {
+            log.info('Access page: %s', download.uri)
+            await page.goto(download.uri)
+            await downloadGame(
+                browser,
                 page,
-                uriBase,
-                paginationLink
-            )
+                log,
+                download.fileName !== null ? download.fileName : undefined
+            ).catch(e => log.error(e))
 
-            if (fetchedGameEntries.length === 0) {
-                let retries = 0
-                while (fetchedGameEntries.length === 0) {
-                    console.log(`Retrying: ${paginationLink}`)
-                    retries++
-                    fetchedGameEntries = await getGameEntries(
-                        page,
-                        uriBase,
-                        paginationLink
-                    )
-
-                    if (fetchedGameEntries.length > 0) {
-                        console.log(`Success: ${paginationLink}`)
-                        continue
-                    }
-
-                    if (retries > 3) {
-                        console.log(`Too many retries: ${paginationLink}`)
-                        continue
-                    }
-
-                    await new Promise(r => setTimeout(r, 2000))
-                }
-            }
-
-            gameEntries.push(...fetchedGameEntries)
-            console.log({ gameLinks: gameEntries.length })
-            await new Promise(r => setTimeout(r, 2000))
-        }
-    }
-
-    await fs.mkdir(downloadFolder).catch(e => e)
-    await fs.rm(cheatsFolder, { recursive: true }).catch(e => e)
-    await fs.mkdir(cheatsFolder)
-    if (!hasGamesStateFile) {
-        await fs.writeFile(gamesStateFile, JSON.stringify(gameEntries, null, 2))
-    }
-
-    for (const [index, gameEntry] of gameEntries.entries()) {
-        console.log(
-            `Getting game data for: ${gameEntry.title} (${index + 1} / ${
-                gameEntries.length
-            })`
-        )
-        for (const cheatEntry of gameEntry.cheatEntries) {
-            console.log(`Getting cheat data for: ${cheatEntry.title}`)
-            const gameData = await getGameData(page, uriBase, cheatEntry)
-            if (!gameData.cheats) continue
-
-            if (gameData.serial.length === 0) {
-                console.log(`No serial, storing in ${noSerialFolder}`)
-                if (!fs.existsSync(noSerialFolder)) {
-                    await fs.mkdir(noSerialFolder)
-                }
-
-                await fs.writeFile(
-                    `${noSerialFolder}/${uuidv4()}.txt`,
-                    gameData.cheats,
-                    'utf8'
-                )
-            } else {
-                await fs.writeFile(
-                    `${cheatsFolder}/${gameData.serial}.txt`,
-                    gameData.cheats,
-                    'utf8'
-                )
-            }
-
-            await new Promise(r => setTimeout(r, 2000))
+            log.info('Waiting 3 seconds..')
+            await new Promise(resolve => setTimeout(resolve, 3000))
         }
     }
 
     await browser.close()
+    log.info('Done.')
 })()

@@ -1,0 +1,4 @@
+export NODE_ENV=development
+export VIMM_SCRAPER_LOG_LEVEL=debug
+export VIMM_SCRAPER_DOWNLOAD_FOLDER=./downloads
+export VIMM_SCRAPER_LOGS_FOLDER=./logs
