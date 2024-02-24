@@ -161,7 +161,7 @@ async function downloadGame(
         }
 
         const tmpSuffix = `.tmp-${uuidv4()}`
-        const tmpFilePath = `${downloadFolder}${
+        const tmpFilePath = `${downloadFolder}/${
             fileNameOverride
                 ? fileNameOverride
                 : `${gameBuffer.fileName}${tmpSuffix}`
