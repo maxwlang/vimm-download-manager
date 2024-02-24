@@ -158,14 +158,18 @@ async function downloadGame(
         return downloadGame(browser, page, log, fileNameOverride, true)
     }
 
+    log.info('Saving file..')
+
     const filePath = `./downloads/${
         fileNameOverride ? fileNameOverride : gameBuffer.fileName
     }`
 
-    await fs.writeFile(filePath, gameBuffer.buffer, 'binary').catch(e => {
+    await fs.writeFile(filePath, gameBuffer.buffer).catch(e => {
         log.error(e)
         return
     })
+
+    log.info('File saved: %s', filePath)
 
     const downloadsJson = await getDownloads(log)
     await fs
@@ -183,8 +187,6 @@ async function downloadGame(
             { spaces: 2 }
         )
         .then(() => log.info('downloads.json updated'))
-
-    log.info('File saved: %s', filePath)
 }
 
 async function getDownloads(log: Logger): Promise<Downloads> {
