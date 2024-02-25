@@ -90,7 +90,10 @@ async function downloadGameBuffer(
                         if (progressEvent.estimated < 60) {
                             const amount = progressEvent.estimated
                             eta = `${amount.toFixed(0)} sec(s) left`
-                        } else if (progressEvent.estimated >= 60) {
+                        } else if (
+                            progressEvent.estimated >= 60 &&
+                            progressEvent.estimated < 3600
+                        ) {
                             const amount = progressEvent.estimated / 60
                             eta = `${amount.toFixed(0)} min(s) left`
                         } else if (progressEvent.estimated >= 3600) {
