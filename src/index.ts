@@ -87,13 +87,16 @@ async function downloadGameBuffer(
 
                     let eta
                     if (progressEvent.estimated) {
-                        const time =
-                            progressEvent.estimated > 60 ? 'min(s)' : 'sec(s)'
-                        const amount =
-                            progressEvent.estimated > 60
-                                ? progressEvent.estimated / 60
-                                : progressEvent.estimated
-                        eta = `${amount.toFixed(0)} ${time} left`
+                        if (progressEvent.estimated < 60) {
+                            const amount = progressEvent.estimated
+                            eta = `${amount.toFixed(0)} sec(s) left`
+                        } else if (progressEvent.estimated >= 60) {
+                            const amount = progressEvent.estimated / 60
+                            eta = `${amount.toFixed(0)} min(s) left`
+                        } else if (progressEvent.estimated >= 3600) {
+                            const amount = progressEvent.estimated / 3600
+                            eta = `${amount.toFixed(2)} hour(s) left`
+                        }
                     } else {
                         eta = 'Unknown'
                     }
